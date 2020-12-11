@@ -36,6 +36,8 @@ let handleError = function (err) {
   console.log("Esto no funciona: ");
 };
 
+let remoteContainer = document.getElementById("remote-container");
+
 // Remove the video stream from the container.
 function removeVideoStream(elementId) {
   let remoteDiv = document.getElementById(elementId);
@@ -47,6 +49,7 @@ export default {
   data: function () {
     return {
       client: 0,
+      localStream : null,
     };
   },
 
@@ -55,54 +58,66 @@ export default {
     rolUser: Number,
   },
 
-  created() {
+  mounted() {
     this.client = AgoraRTC.createClient({
       mode: "rtc",
       codec: "vp8",
     });
-    this.client.init("3d2452ae22b54bd7b037d89b006c2cb8");
+    
+    this.localStream = AgoraRTC.createStream({
+      audio: true,
+      video: true,
+    });
+
   },
 
   methods: {
-    join_client() {
-      // Query the container to which the remote stream belong.
-      let remoteContainer = document.getElementById("remote-container");
-      let response = this.get_token();
+  
+  handleError(err) {
+    console.log(err)
+  },
 
-      let localStream = AgoraRTC.createStream({
-        audio: true,
-        video: true,
-      });
-
-      let token = "0063d2452ae22b54bd7b037d89b006c2cb8IADsdUnIgqWD/bHbcaI6XOu1NDpiSQC1ogJQl9/KVhgY+wx+f9gAAAAAEABC9EaCQMLUXwEAAQBAwtRf" 
-      this.client.join(
+  join_client() {
+    //let response = this.get_token();
+    this.client.init("3d2452ae22b54bd7b037d89b006c2cb8")
+    let token = "0063d2452ae22b54bd7b037d89b006c2cb8IACc2RBg/20uEmKG3GdydnFc1GoPcVIpwZWrO29YAll6/wx+f9gAAAAAEABC9EaCXdfUXwEAAQBd19Rf"
+    this.client.join(
         token,
         this.channelName,
         null,
         (uid) => {
           // Create a local stream
+          this.localStream.init(() => {
+            // Play the local stream
+            this.localStream.play("me");
+            // Publish the local stream
+            this.client.publish(this.localStream, this.handleError);
+          }, this.handleError);
         },
-        handleError
+        this.handleError
       );
 
-      // Initialize the local stream
-      localStream.init(() => {
-        // Play the local stream
-        localStream.play("me");
-        // Publish the local stream
-        this.client.publish(localStream, handleError);
-      }, handleError);
+      let remoteContainer = document.getElementById("remote-container")
 
-      this.client.on("stream-added", function (evt) {
-        this.client.subscribe(evt.stream, {video: true, audio: false});
+      this.client.on("stream-added", function(evt){
+        console.log("antes de stream add")
+        console.log(evt)
+        this.client.subscribe(evt.stream, ()=>{console.log('que paso :(')});
       });
-      // Play the remote stream when it is subsribed
-      this.client.on("stream-subscribed", function (evt) {
+
+
+      //Play the remote stream when it is subsribed
+      this.client.on("stream-subscribed", function(evt){
+        console.log("sucribete")
+        console.log(evt)
         let stream = evt.stream;
         let streamId = String(stream.getId());
         this.addVideoStream(streamId);
         stream.play(streamId);
       });
+
+
+
     },
 
     /*Get token of authentications*/
